@@ -6,17 +6,25 @@ if ! command -v go &> /dev/null; then
     exit 1
 fi
 
-# Create directory for the project
-mkdir -p ~/go/src/bookmark
-cd ~/go/src/bookmark
+# Create temporary directory for installation
+TEMP_DIR=$(mktemp -d)
+echo "Creating project in $TEMP_DIR..."
 
-# Create the main.go file
+# Create directory structure and enter it
+mkdir -p "$TEMP_DIR"
+cd "$TEMP_DIR" || exit 1
+
+# Initialize a new Go module
+echo "Initializing Go module..."
+go mod init github.com/Bitlatte/bookmark
+
+# Create main.go file
+echo "Creating main.go..."
 cat > main.go << 'EOF'
 package main
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -42,7 +50,7 @@ func NewBookmarkStore() (*BookmarkStore, error) {
 		return nil, fmt.Errorf("failed to get home directory: %w", err)
 	}
 
-	configDir := filepath.Join(homeDir, ".config", "bookmark")
+	configDir := filepath.Join(homeDir, ".config", "dir-bookmarks")
 	if err := os.MkdirAll(configDir, 0755); err != nil {
 		return nil, fmt.Errorf("failed to create config directory: %w", err)
 	}
@@ -87,7 +95,7 @@ func (s *BookmarkStore) Add(name, path string) error {
 	// Check if bookmark with this name already exists
 	for _, b := range s.Bookmarks {
 		if b.Name == name {
-			return errors.New("bookmark with this name already exists")
+			return fmt.Errorf("bookmark with name '%s' already exists (points to: %s)", name, b.Path)
 		}
 	}
 
@@ -109,6 +117,13 @@ func (s *BookmarkStore) Add(name, path string) error {
 	absPath, err := filepath.Abs(path)
 	if err != nil {
 		return fmt.Errorf("failed to get absolute path: %w", err)
+	}
+	
+	// Check if path is already bookmarked
+	for _, b := range s.Bookmarks {
+		if b.Path == absPath {
+			return fmt.Errorf("this directory is already bookmarked as '%s'", b.Name)
+		}
 	}
 
 	s.Bookmarks = append(s.Bookmarks, Bookmark{
@@ -144,6 +159,12 @@ func (s *BookmarkStore) Get(name string) (string, error) {
 // List returns all bookmarks
 func (s *BookmarkStore) List() []Bookmark {
 	return s.Bookmarks
+}
+
+// isRunningInTerminal checks if stdout is connected to a terminal
+func isRunningInTerminal() bool {
+	fileInfo, _ := os.Stdout.Stat()
+	return (fileInfo.Mode() & os.ModeCharDevice) != 0
 }
 
 func printUsage() {
@@ -226,8 +247,17 @@ func main() {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		// Just print the path so shell functions can use it
-		fmt.Print(path)
+		
+		// Check if being run directly or through the shell function
+		isTTY := isRunningInTerminal()
+		if isTTY {
+			fmt.Printf("To navigate to '%s', use: goto %s\n", path, name)
+			fmt.Println("A Go program cannot change the directory of your shell.")
+			fmt.Println("Use the shell function 'goto' that was set up during installation.")
+		} else {
+			// Just print the path when called from shell function
+			fmt.Print(path)
+		}
 		
 	case "list":
 		bookmarks := store.List()
@@ -249,17 +279,21 @@ func main() {
 }
 EOF
 
-# Build and install the binary
-go build -o bm
-chmod +x bm
+# Build the project
+echo "Building project..."
+go build -o bm || {
+    echo "Failed to build. Make sure Go is installed correctly."
+    exit 1
+}
 
-# Install to /usr/local/bin if user has permissions, otherwise to ~/bin
+# Install binary to appropriate location
+echo "Installing binary..."
 if [ -w /usr/local/bin ]; then
-    sudo mv bm /usr/local/bin/
+    sudo cp bm /usr/local/bin/
     echo "Installed bm to /usr/local/bin/"
 else
     mkdir -p ~/bin
-    mv bm ~/bin/
+    cp bm ~/bin/
     echo "Installed bm to ~/bin/"
     
     # Add ~/bin to PATH if it's not already there
@@ -280,13 +314,19 @@ fi
 
 if [ -n "$SHELL_CONFIG" ]; then
     echo "Adding shell functions to $SHELL_CONFIG"
-    cat >> "$SHELL_CONFIG" << 'EOF'
+    
+    # Check if functions already exist
+    if grep -q "function cdto()" "$SHELL_CONFIG"; then
+        echo "Shell functions already exist in $SHELL_CONFIG, skipping..."
+    else
+        cat >> "$SHELL_CONFIG" << 'EOF'
 
 # Directory bookmarks
 function cdto() {
     local dir=$(bm go "$1" 2>/dev/null)
     if [ -n "$dir" ]; then
         cd "$dir"
+        echo "Changed directory to: $dir"
     else
         echo "Error: Bookmark not found: $1"
         return 1
@@ -294,7 +334,8 @@ function cdto() {
 }
 alias goto="cdto"
 EOF
-    echo "Shell functions added. Please restart your terminal or run 'source $SHELL_CONFIG'"
+        echo "Shell functions added. Please restart your terminal or run 'source $SHELL_CONFIG'"
+    fi
 else
     echo "Could not find shell config file. Please manually add the shell functions:"
     echo ""
@@ -302,6 +343,7 @@ else
     echo "    local dir=\$(bm go \"\$1\" 2>/dev/null)"
     echo "    if [ -n \"\$dir\" ]; then"
     echo "        cd \"\$dir\""
+    echo "        echo \"Changed directory to: \$dir\""
     echo "    else"
     echo "        echo \"Error: Bookmark not found: \$1\""
     echo "        return 1"
@@ -309,6 +351,10 @@ else
     echo "}"
     echo "alias goto=\"cdto\""
 fi
+
+# Clean up temporary directory
+echo "Cleaning up..."
+rm -rf "$TEMP_DIR"
 
 echo ""
 echo "Installation complete!"
