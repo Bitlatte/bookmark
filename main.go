@@ -142,6 +142,10 @@ func printUsage() {
 	fmt.Println("  bm list               - List all bookmarks")
 	fmt.Println("  bm go <name>          - Print the path of a bookmark (use with cd command, see below)")
 	fmt.Println()
+	fmt.Println("Setup:")
+	fmt.Println("  Add this to your .bashrc or .zshrc:")
+	fmt.Println("  function cdto() { cd \"$(bm go \"$1\")\" }")
+	fmt.Println("  alias goto=\"cdto\"")
 }
 
 func main() {
