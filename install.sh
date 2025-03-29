@@ -17,7 +17,7 @@ TEMP_DIR=$(mktemp -d)
 echo "Cloning repository to $TEMP_DIR..."
 
 # Clone the repository
-REPO_URL="https://github.com/Bitlatte/bookmark.git"
+REPO_URL="https://github.com/bitlatte/bookmark.git"
 if ! git clone "$REPO_URL" "$TEMP_DIR"; then
     echo "Failed to clone repository from $REPO_URL"
     echo "Please check that the repository exists and is accessible."
@@ -69,18 +69,10 @@ if [ -n "$SHELL_CONFIG" ]; then
 
     # Check if functions already exist
     if grep -q "function cdto()" "$SHELL_CONFIG"; then
-        # Check if it's the old version (without the if [ $# -eq 0 ] check)
-        if grep -q "local dir=\$(bm go \"\$1\" 2>/dev/null)" "$SHELL_CONFIG" && ! grep -q "if \[ \$# -eq 0 \]" "$SHELL_CONFIG"; then
-            echo "Updating shell functions in $SHELL_CONFIG to the latest version..."
-
-            # Create a temporary file
-            TEMP_FILE=$(mktemp)
-
-            # Filter out the old function and alias
-            grep -v "function cdto()" "$SHELL_CONFIG" | grep -v "alias goto=\"cdto\"" > "$TEMP_FILE"
-
-            # Add the updated function
-            cat >> "$TEMP_FILE" << 'EOF'
+        echo "Shell functions already exist in $SHELL_CONFIG, skipping..."
+    else
+        echo "Adding shell functions to $SHELL_CONFIG"
+        cat >> "$SHELL_CONFIG" << 'EOF'
 
 # Directory bookmarks
 function cdto() {
@@ -101,7 +93,6 @@ function cdto() {
     fi
 }
 alias goto="cdto"
-
 EOF
         echo "Shell functions added. Please restart your terminal or run 'source $SHELL_CONFIG'"
     fi
