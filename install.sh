@@ -47,7 +47,7 @@ else
     mkdir -p ~/bin
     cp bm ~/bin/
     echo "Installed bm to ~/bin/"
-
+    
     # Add ~/bin to PATH if it's not already there
     if [[ ":$PATH:" != *":$HOME/bin:"* ]]; then
         echo "Adding ~/bin to your PATH"
@@ -66,32 +66,17 @@ fi
 
 if [ -n "$SHELL_CONFIG" ]; then
     echo "Checking shell configuration in $SHELL_CONFIG..."
-
+    
     # Check if functions already exist
     if grep -q "function cdto()" "$SHELL_CONFIG"; then
-        # Check if it's the old version (without the if [ $# -eq 0 ] check)
-        if grep -q "local dir=\$(bm go \"\$1\" 2>/dev/null)" "$SHELL_CONFIG" && ! grep -q "if \[ \$# -eq 0 \]" "$SHELL_CONFIG"; then
-            echo "Updating shell functions in $SHELL_CONFIG to the latest version..."
-
-            # Create a temporary file
-            TEMP_FILE=$(mktemp)
-
-            # Filter out the old function and alias
-            grep -v "function cdto()" "$SHELL_CONFIG" | grep -v "alias goto=\"cdto\"" > "$TEMP_FILE"
-
-            # Add the updated function
-            cat >> "$TEMP_FILE" << 'EOF'
+        echo "Shell functions already exist in $SHELL_CONFIG, skipping..."
+    else
+        echo "Adding shell functions to $SHELL_CONFIG"
+        cat >> "$SHELL_CONFIG" << 'EOF'
 
 # Directory bookmarks
 function cdto() {
-    if [ $# -eq 0 ]; then
-        # If no arguments, just use bm go (which will handle default case)
-        local dir=$(bm go 2>/dev/null)
-    else
-        # Otherwise pass the bookmark name
-        local dir=$(bm go "$1" 2>/dev/null)
-    fi
-
+    local dir=$(bm go "$1" 2>/dev/null)
     if [ -n "$dir" ]; then
         cd "$dir"
         echo "Changed directory to: $dir"
@@ -101,7 +86,6 @@ function cdto() {
     fi
 }
 alias goto="cdto"
-
 EOF
         echo "Shell functions added. Please restart your terminal or run 'source $SHELL_CONFIG'"
     fi
@@ -109,14 +93,7 @@ else
     echo "Could not find shell config file. Please manually add the shell functions:"
     echo ""
     echo "function cdto() {"
-    echo "    if [ \$# -eq 0 ]; then"
-    echo "        # If no arguments, just use bm go (which will handle default case)"
-    echo "        local dir=\$(bm go 2>/dev/null)"
-    echo "    else"
-    echo "        # Otherwise pass the bookmark name"
-    echo "        local dir=\$(bm go \"\$1\" 2>/dev/null)"
-    echo "    fi"
-    echo ""
+    echo "    local dir=\$(bm go \"\$1\" 2>/dev/null)"
     echo "    if [ -n \"\$dir\" ]; then"
     echo "        cd \"\$dir\""
     echo "        echo \"Changed directory to: \$dir\""

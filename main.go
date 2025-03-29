@@ -15,7 +15,7 @@ type Bookmark struct {
 
 type BookmarkStore struct {
 	Bookmarks []Bookmark `json:"bookmarks"`
-	filePath  string
+	filePath string
 }
 
 func NewBookmarkStore() (*BookmarkStore, error) {
@@ -31,7 +31,7 @@ func NewBookmarkStore() (*BookmarkStore, error) {
 
 	filePath := filepath.Join(configDir, "bookmarks.json")
 	store := &BookmarkStore{
-		filePath:  filePath,
+		filePath: filePath,
 		Bookmarks: []Bookmark{},
 	}
 
@@ -183,13 +183,13 @@ func main() {
 				os.Exit(1)
 			}
 		}
-
+		
 		if err := store.Add(name, path); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
 		fmt.Printf("Added bookmark '%s' -> %s\n", name, path)
-
+		
 	case "remove":
 		if len(args) < 2 {
 			fmt.Println("Error: Missing bookmark name")
@@ -202,32 +202,34 @@ func main() {
 			os.Exit(1)
 		}
 		fmt.Printf("Removed bookmark '%s'\n", name)
-
+		
 	case "go":
 		if len(args) < 2 {
-			fmt.Print(os.UserHomeDir())
-		} else {
-			name := args[1]
-			path, err := store.Get(name)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Error: %v\n", err)
-				os.Exit(1)
-			}
-			fmt.Print(path)
+			fmt.Println("Error: Missing bookmark name")
+			printUsage()
+			os.Exit(1)
 		}
-
+		name := args[1]
+		path, err := store.Get(name)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+			os.Exit(1)
+		}
+		// Just print the path so shell functions can use it
+		fmt.Print(path)
+		
 	case "list":
 		bookmarks := store.List()
 		if len(bookmarks) == 0 {
 			fmt.Println("No bookmarks saved.")
 			return
 		}
-
+		
 		fmt.Println("Bookmarks:")
 		for _, b := range bookmarks {
 			fmt.Printf("  %s -> %s\n", b.Name, b.Path)
 		}
-
+		
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown command: %s\n", command)
 		printUsage()
