@@ -50,7 +50,14 @@ sudo mv bm /usr/local/bin/
 echo '
 # Directory bookmarks
 function cdto() {
-    local dir=$(bm go "$1" 2>/dev/null)
+    if [ $# -eq 0 ]; then
+        # If no arguments, just use bm go (which will handle default case)
+        local dir=$(bm go 2>/dev/null)
+    else
+        # Otherwise pass the bookmark name
+        local dir=$(bm go "$1" 2>/dev/null)
+    fi
+
     if [ -n "$dir" ]; then
         cd "$dir"
         echo "Changed directory to: $dir"
@@ -78,6 +85,11 @@ bm add work
 
 ```bash
 bm add projects ~/projects
+```
+
+### Navigate to your home directory
+```bash
+goto
 ```
 
 ### Navigate to a bookmarked directory
